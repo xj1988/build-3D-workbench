@@ -1,0 +1,35 @@
+{
+  "title": "学习基地",
+  "subtitle": "一块方方正正的小沙盘，装下今天要学的东西",
+  "nickname": "同学",
+  "storageKey": "diorama-study-v1",
+  "base": "diorama",
+  "theme": "matcha",
+  "quality": "standard",
+  "frameRatio": "4:3",
+  "river": { "enabled": true, "bridges": [0.28, 0.7] },
+  "decor": { "trees": 1, "flowers": 0.8, "walkers": 8, "planes": 2, "boats": 5, "garlands": true, "sparkles": true },
+  "modes": {
+    "morning":   { "name": "早读", "sub": "先去书塔领今天的任务", "focus": [0, 1] },
+    "afternoon": { "name": "专注", "sub": "在营地专注 45 分钟，然后去喝杯咖啡", "focus": [2, 3, 4] },
+    "night":     { "name": "复盘", "sub": "看看星星，也看看今天的打卡", "focus": [5, 6] }
+  },
+  "stats": [ { "k": "连续学习", "v": 23 }, { "k": "本周时长", "v": "11.5h" }, { "k": "错题清零", "v": 46 } ],
+  "track": { "label": "本周目标：第 4 章", "steps": ["预习", "听课", "练习", "错题", "总结"], "current": 3 },
+  "zones": [
+    { "id": "books", "kit": "bookTower", "name": "知识书塔", "info": "第 4 章", "value": 0.55,
+      "panel": { "lead": "每学完一章，书塔就加高一层。", "progress": { "label": "教材进度", "value": 0.55 }, "items": [ { "t": "第 1–3 章", "s": "已完成" }, { "t": "第 4 章 函数", "s": "进行中" }, { "t": "第 5 章 数列", "s": "未开始" } ] } },
+    { "id": "post", "kit": "postOffice", "name": "作业邮局", "info": "2 份待交", "sign": "作业邮局",
+      "panel": { "lead": "写完的作业从这里寄出去。", "items": [ { "t": "数学练习册 P34", "s": "周三" }, { "t": "英语作文", "s": "周五" } ] } },
+    { "id": "camp", "kit": "tent", "name": "专注营地", "info": "番茄钟",
+      "panel": { "lead": "篝火燃着的时候，不看手机。", "chips": [ { "k": "今日番茄", "v": 6 }, { "k": "最长专注", "v": "50分" } ] } },
+    { "id": "green", "kit": "greenhouse", "name": "错题温室", "info": "每天浇一次水",
+      "panel": { "lead": "错题像幼苗，重做一次就长大一点。", "checklist": [ { "t": "函数单调性 3 题", "done": true }, { "t": "数列求和 2 题", "done": false }, { "t": "完形填空 1 篇", "done": false } ] } },
+    { "id": "cafe", "kit": "cafe", "name": "休息咖啡车", "info": "劳逸结合", "sign": "课间菜单",
+      "panel": { "lead": "休息也是计划的一部分。", "items": [ { "t": "伸展 5 分钟", "s": "" }, { "t": "喝水", "s": "" }, { "t": "看远处", "s": "" } ] } },
+    { "id": "obs", "kit": "observatory", "name": "目标天文台", "info": "期末目标",
+      "panel": { "lead": "抬头看看远一点的目标。", "progress": { "label": "期末目标完成度", "value": 0.4 }, "tags": ["数学 120+", "英语 130+", "每天 3 小时"] } },
+    { "id": "plaza", "kit": "plaza", "name": "打卡广场", "info": "近 30 天", "value": 0.77,
+      "panel": { "lead": "一天一盏灯，30 天点亮一圈。", "chips": [ { "k": "亮灯", "v": 23 }, { "k": "连续", "v": 9 } ] } }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "title": "橘子汽水小店",
+  "subtitle": "一座会营业的小岛：咖啡、花草和每天的新订单",
+  "nickname": "店长",
+  "storageKey": "island-shop-v1",
+  "base": "island",
+  "theme": "sunset",
+  "quality": "standard",
+  "frameRatio": "3:4",
+  "river": { "enabled": true, "bridges": [0.32, 0.7] },
+  "decor": { "trees": 0.9, "flowers": 1.2, "walkers": 14, "planes": 2, "boats": 6, "garlands": true, "sparkles": true },
+  "modes": {
+    "morning":   { "name": "开店", "sub": "擦亮咖啡车，看看今天有什么新订单", "focus": [0, 1] },
+    "afternoon": { "name": "营业高峰", "sub": "摩天轮转起来，客人越来越多", "focus": [2, 3, 4] },
+    "night":     { "name": "打烊盘点", "sub": "灯塔亮着，算算今天的账", "focus": [5, 6] }
+  },
+  "stats": [ { "k": "今日订单", "v": 38 }, { "k": "回头客", "v": 12 }, { "k": "好评", "v": 96 } ],
+  "track": { "label": "本月活动：夏日限定", "steps": ["选品", "试做", "拍图", "上新", "复盘"], "current": 4 },
+  "zones": [
+    { "id": "cafe", "kit": "cafe", "name": "咖啡车", "info": "今日特供", "sign": "今日特供",
+      "panel": { "lead": "最受欢迎的三款饮品。", "items": [ { "t": "橘子气泡美式", "s": "¥22" }, { "t": "海盐拿铁", "s": "¥26" }, { "t": "桂花冷萃", "s": "¥24" } ] } },
+    { "id": "post", "kit": "postOffice", "name": "订单邮局", "info": "5 单待发", "sign": "订单",
+      "panel": { "lead": "线上订单从这里打包寄出。", "chips": [ { "k": "待发", "v": 5 }, { "k": "已发", "v": 33 } ] } },
+    { "id": "ferris", "kit": "ferris", "name": "活动摩天轮", "info": "夏日限定",
+      "panel": { "lead": "限时活动进行中。", "progress": { "label": "活动进度", "value": 0.6 }, "tags": ["第二杯半价", "集章送贴纸"] } },
+    { "id": "fountain", "kit": "fountain", "name": "客流喷泉", "info": "人气",
+      "panel": { "lead": "今天经过小店的人。", "chips": [ { "k": "进店", "v": 210 }, { "k": "下单", "v": 38 } ] } },
+    { "id": "green", "kit": "greenhouse", "name": "新品温室", "info": "研发中",
+      "panel": { "lead": "正在试做的新品。", "checklist": [ { "t": "青提茉莉", "done": true }, { "t": "烤椰拿铁", "done": false }, { "t": "柚子气泡水", "done": false } ] } },
+    { "id": "light", "kit": "lighthouse", "name": "营收灯塔", "info": "月目标",
+      "panel": { "lead": "窗户亮灯数 = 月营收目标完成度。", "progress": { "label": "月营收", "value": 0.72 } } },
+    { "id": "garden", "kit": "garden", "name": "好评花园", "info": "每条好评一朵花",
+      "panel": { "lead": "客人留下的好评会长成花。", "items": [ { "t": "咖啡很香", "s": "★★★★★" }, { "t": "店长好可爱", "s": "★★★★★" }, { "t": "包装用心", "s": "★★★★★" }, { "t": "出杯快", "s": "★★★★" }, { "t": "会再来", "s": "★★★★★" } ] } }
+  ]
+}

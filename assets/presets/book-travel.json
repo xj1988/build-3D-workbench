@@ -1,0 +1,34 @@
+{
+  "title": "旅行手账",
+  "subtitle": "把去过和想去的地方，夹进一本会展开的书",
+  "nickname": "旅人",
+  "storageKey": "book-travel-v1",
+  "base": "book",
+  "theme": "ocean",
+  "quality": "standard",
+  "frameRatio": "3:4",
+  "pageNotes": ["出发吧 ✈", "下一站是哪里", "收集每一张车票"],
+  "river": { "enabled": true, "bridges": [0.3, 0.75] },
+  "decor": { "trees": 1, "flowers": 0.9, "walkers": 10, "planes": 4, "boats": 7, "garlands": true, "sparkles": true },
+  "modes": {
+    "morning":   { "name": "出发", "sub": "收拾背包，先看看地图", "focus": [0, 1] },
+    "afternoon": { "name": "在路上", "sub": "坐一次摩天轮，寄一张明信片", "focus": [2, 3] },
+    "night":     { "name": "营地", "sub": "篝火边整理今天的照片", "focus": [4, 5] }
+  },
+  "stats": [ { "k": "去过城市", "v": 17 }, { "k": "今年出行", "v": 4 }, { "k": "明信片", "v": 23 } ],
+  "track": { "label": "下一趟：海边小城", "steps": ["做攻略", "订票", "打包", "出发", "整理"], "current": 2 },
+  "zones": [
+    { "id": "look", "kit": "lookout", "name": "攻略瞭望台", "info": "想去清单",
+      "panel": { "lead": "站高一点，挑下一个目的地。", "items": [ { "t": "海边小城", "s": "下个月" }, { "t": "雪山小镇", "s": "冬天" }, { "t": "古城夜市", "s": "待定" } ] } },
+    { "id": "cafe", "kit": "cafe", "name": "路边咖啡", "info": "旅途补给", "sign": "旅途补给",
+      "panel": { "lead": "每到一个城市，喝一杯本地咖啡。", "items": [ { "t": "厦门 · 海蛎拿铁", "s": "" }, { "t": "大理 · 玫瑰冷萃", "s": "" } ] } },
+    { "id": "ferris", "kit": "ferris", "name": "城市摩天轮", "info": "看风景",
+      "panel": { "lead": "去过的城市都坐一次摩天轮。", "progress": { "label": "年度出行计划", "value": 0.4 } } },
+    { "id": "post", "kit": "postOffice", "name": "明信片邮局", "info": "寄给未来", "sign": "明信片",
+      "panel": { "lead": "每个城市给自己寄一张。", "chips": [ { "k": "已寄", "v": 23 }, { "k": "已收到", "v": 19 } ] } },
+    { "id": "camp", "kit": "tent", "name": "篝火营地", "info": "今晚住这",
+      "panel": { "lead": "整理照片，写今天的日记。", "checklist": [ { "t": "导出照片", "done": true }, { "t": "写 300 字日记", "done": false }, { "t": "记账", "done": false } ] } },
+    { "id": "obs", "kit": "observatory", "name": "星空观测站", "info": "看极光",
+      "panel": { "lead": "终极目标：去北边看一次极光。", "progress": { "label": "旅行基金", "value": 0.35 }, "tags": ["冰岛", "芬兰", "漠河"] } }
+  ]
+}

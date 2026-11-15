@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+_old_v1/
+out/
+*.log
+.env
+.env.*
+*.pem
+*.key
