@@ -60,10 +60,11 @@ description: 用一份 JSON 配置生成奶油色微缩风 Three.js 3D 工作台
 | 休息、菜单、店铺、补给 | `cafe` 咖啡车 | 活动、娱乐、周期、高光 | `ferris` 摩天轮 |
 
 规则：
-- 同一种积木最多用 2 次；相邻区域尽量用不同高度（高：灯塔/书塔/摩天轮/风车/瞭望台；矮：广场/营地/喷泉/菜园/温室），画面才有节奏。
+- 同一种积木最多用 2 次（多页时按页计）；相邻区域尽量用不同高度（高：灯塔/书塔/摩天轮/风车/瞭望台；矮：广场/营地/喷泉/菜园/温室），画面才有节奏。
 - `name` ≤ 6 个字，`info` ≤ 10 个字（浮标里显示）。
 - `pos` **可以不写**，引擎会按 9 个预设空位自动摆放，保证不撞河、不出界。只有用户明确要求布局时才写（坐标规则见 [配置手册](references/config-schema.md#坐标)）。
 - 进度型积木（灯塔、广场、风车）给 `value`（0～1）或 `panel.progress`；数量型积木（便签树、菜园）由 `panel.items` 的条数决定。
+- **立体书要多页内容时用 `pages`**（2～4 页，←/→ 翻页，每页自己的 zones/pageNotes/modes，stats/track 等仍全局）：用户说「翻页看不同内容」「像一本书一样分章节」「分几页展示」时用。结构见 [配置手册](references/config-schema.md#7-pages多页翻页仅立体书)。
 
 **④ 文字**：`title`（≤ 12 字）、`subtitle`、`stats`（≤ 4 个计数卡）、`track`（底部进度条，2～7 步，不需要就删掉）、`modes` 三个时段的名字和一句话。
 
@@ -121,6 +122,7 @@ python3 "SKILL_DIR/scripts/validate_workbench.py" "OUT/workbench.html"
 | 花草树太多 / 太少 | `decor.trees`、`decor.flowers`（0～2 倍） |
 | 电脑卡 | `"quality": "low"`（关泛光移轴、减少花草，建筑不变） |
 | 小红书竖图 | `frameRatio: "3:4"`，页面按 F 出取景框，H 隐藏界面后截图 |
+| 立体书加一页 / 改某页内容 | `pages` 数组加一项或改对应页（页级 zones/pageNotes/modes），见 [配置手册](references/config-schema.md#7-pages多页翻页仅立体书) |
 | 新的建筑造型 | 按 [积木手册](references/kits.md#新增积木) 加一个 `KITS.xxx` |
 | 新的底座形状 | 按 [底座手册](references/bases.md#新增底座) 加一个 `BASES.xxx` |
 
@@ -128,7 +130,7 @@ python3 "SKILL_DIR/scripts/validate_workbench.py" "OUT/workbench.html"
 
 交付一个能直接打开的 HTML，并用几句话说清：
 - 怎么打开（双击或本地服务器），需要联网（Three.js 和字体走 CDN）。
-- 怎么玩：拖动旋转、滚轮缩放、点建筑看详情、P 漫步、D 巡游、T 换色、S 截图、F 取景框、H 隐藏界面、铅笔按钮编辑内容。
+- 怎么玩：拖动旋转、滚轮缩放、点建筑看详情、P 漫步、D 巡游、T 换色、S 截图、F 取景框、H 隐藏界面、铅笔按钮编辑内容；多页立体书用 ←/→ 或右下角页角按钮翻页（每页内容不同，刷新后记住页码）。
 - 修改只存在当前浏览器，不会写回文件、不跨设备同步。
 - 哪些内容是示例、哪些检查没做（例如“未在浏览器实测”）。
 

@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_workbench as bw  # noqa: E402
 
-REQUIRED_IDS = ['c', 'labels', 'brand', 'stats', 'tools', 'track', 'panel', 'pBody', 'modal', 'fJson', 'loading', 'frame', 'toast']
+REQUIRED_IDS = ['c', 'labels', 'brand', 'stats', 'tools', 'track', 'panel', 'pBody', 'modal', 'fJson', 'loading', 'frame', 'toast', 'pageNav', 'pgPrev', 'pgNext', 'pgChip']
 ALLOWED_HOSTS = {'fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net'}
 
 
@@ -65,8 +65,11 @@ def validate(path):
     try:
         scene = json.loads(bw.block(text, 'SCENE').group(1))
         bw.validate_scene(scene, themes)
-        for z in scene['zones']:
-            check(('KITS.' + z['kit'] + '=') in text, '模板里没有积木 ' + z['kit'])
+        zone_lists = ([p.get('zones') or [] for p in scene['pages']] if isinstance(scene.get('pages'), list) and len(scene['pages']) > 1
+                      else [scene['zones']])
+        for zs in zone_lists:
+            for z in zs:
+                check(('KITS.' + z['kit'] + '=') in text, '模板里没有积木 ' + z['kit'])
     except Exception as e:
         errors.append('SCENE 无效：' + str(e))
     check('three@0.169.0/build/three.module.js' in text and 'three@0.169.0/examples/jsm/' in text, 'Three.js 核心与 addons 必须固定为同一版本 0.169.0')

@@ -84,6 +84,7 @@ python3 "SKILL_DIR/scripts/validate_workbench.py" "OUT/workbench.html"
 | 新建筑造型 | kits.md 第 3 节 | 模板 `§7` 加 `KITS.xxx`，`KIT_NAMES` 加名字，`catalog.json` 加说明 |
 | 新底座形状 | bases.md 第 3 节 | 模板 `§6` 加 `BASES.xxx`，`normalize()` 白名单，`catalog.json` |
 | 新配色 | themes.md 第 3 节 | 用 `--palette`，或写进 `THEMES` |
+| 新交互/新 UI（如多页翻页） | config-schema.md 第 7 节 | 模板加独立 § 小节 + `normalize()`/`structSig` 适配 + `build_workbench.py` 校验 + `validate_workbench.py`/`browser_check.js` 同步 + acceptance.md 加验收条目 |
 
 扩展规则：
 - **改模板前先复制一份**（`workbench-template.backup.html`），改坏了能回退。

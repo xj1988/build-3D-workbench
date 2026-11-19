@@ -92,9 +92,15 @@ def validate_palette(p, label):
 
 def validate_scene(s, themes):
     need(isinstance(s, dict), '配置必须是 JSON 对象')
-    for k in ['title', 'zones']:
+    for k in ['title']:
         need(k in s, '缺少字段 ' + k)
     check_text(s['title'], 'title', 24)
+    # pages（多页翻页）与顶层 zones 二选一：有 pages（≥2 页）时页级字段以 pages 为准
+    has_pages = isinstance(s.get('pages'), list) and len(s['pages']) > 1
+    if has_pages and s.get('zones'):
+        warnings.append('pages 存在时顶层 zones/pageNotes/modes 被忽略（书页内容以 pages 为准）')
+    if not has_pages:
+        need('zones' in s, '缺少字段 zones（多页请用 pages）')
     if 'subtitle' in s:
         check_text(s['subtitle'], 'subtitle', 60)
     if 'nickname' in s:
@@ -142,63 +148,94 @@ def validate_scene(s, themes):
         need(isinstance(tr, dict) and isinstance(tr.get('steps'), list) and 2 <= len(tr['steps']) <= 7 and all(isinstance(x, str) for x in tr['steps']),
              'track.steps 需要 2~7 个文字步骤（不要底部进度条就删掉 track）')
         need(isinstance(tr.get('current', 1), int) and 1 <= tr.get('current', 1) <= len(tr['steps']), 'track.current 从 1 开始，不能超过步骤数')
-    zones = s['zones']
-    need(isinstance(zones, list) and 1 <= len(zones) <= CATALOG['limits']['zones_max'], f'zones 需要 1~{CATALOG["limits"]["zones_max"]} 个')
-    ids = set()
+
     lim = CATALOG['limits']
-    placed = []
-    for i, z in enumerate(zones):
-        lab = f'zones[{i}]'
-        need(isinstance(z, dict), lab + ' 必须是对象')
-        need(z.get('kit') in CATALOG['kits'], f'{lab}.kit 只能是：' + ' / '.join(CATALOG['kits']))
-        check_text(z.get('name', ''), lab + '.name', 10)
-        need(z.get('name'), lab + '.name 不能为空')
-        if 'info' in z:
-            check_text(z['info'], lab + '.info', 14)
-        zid = z.get('id', f'zone{i}')
-        need(zid not in ids, f'{lab}.id 重复：{zid}')
-        ids.add(zid)
-        if 'value' in z:
-            need(is_num(z['value']) and 0 <= z['value'] <= 1, f'{lab}.value 是 0~1 的小数')
-        if 'scale' in z:
-            need(is_num(z['scale']) and 0.5 <= z['scale'] <= 1.6, f'{lab}.scale 是 0.5~1.6')
-        if 'rot' in z:
-            need(is_num(z['rot']), f'{lab}.rot 是角度（数字）')
-        if 'pos' in z:
-            p = z['pos']
-            need(isinstance(p, list) and len(p) == 2 and all(is_num(v) for v in p), f'{lab}.pos 是 [x, z]')
-            need(lim['x'][0] <= p[0] <= lim['x'][1] and lim['z'][0] <= p[1] <= lim['z'][1],
-                 f'{lab}.pos 超出范围：x 在 {lim["x"]}，z 在 {lim["z"]}')
-            if s.get('base') == 'book' and abs(p[0]) < 1.3:
-                warnings.append(f'{lab} 太靠近书脊（|x|<1.3），建筑会压在折缝上')
-        panel = z.get('panel', {})
-        need(isinstance(panel, dict), lab + '.panel 必须是对象')
-        for f in ['lead', 'text', 'itemsTitle', 'checklistTitle']:
-            if f in panel:
-                check_text(panel[f], f'{lab}.panel.{f}', 600)
-        if 'chips' in panel:
-            need(isinstance(panel['chips'], list) and all(isinstance(c, dict) and isinstance(c.get('k'), str) for c in panel['chips']), lab + '.panel.chips 是 [{k, v}]')
-        if 'items' in panel:
-            need(isinstance(panel['items'], list) and all(isinstance(c, dict) and isinstance(c.get('t'), str) for c in panel['items']), lab + '.panel.items 是 [{t, s}]')
-        if 'checklist' in panel:
-            need(isinstance(panel['checklist'], list) and all(isinstance(c, dict) and isinstance(c.get('t'), str) and isinstance(c.get('done', False), bool) for c in panel['checklist']), lab + '.panel.checklist 是 [{t, done:true/false}]')
-        if 'progress' in panel:
-            pr = panel['progress']
-            need(isinstance(pr, dict) and is_num(pr.get('value')) and 0 <= pr['value'] <= 1, lab + '.panel.progress.value 是 0~1')
-        if 'tags' in panel:
-            need(isinstance(panel['tags'], list) and all(isinstance(t, str) for t in panel['tags']), lab + '.panel.tags 是文字数组')
-        placed.append((z, i))
-    # 粗略检查显式坐标的重叠
-    exp = [(z, i) for z, i in placed if 'pos' in z]
-    for a in range(len(exp)):
-        for b in range(a + 1, len(exp)):
-            za, ia = exp[a]
-            zb, ib = exp[b]
-            d = math.dist(za['pos'], zb['pos'])
-            ra = CATALOG['kits'][za['kit']]['r'] * za.get('scale', 1)
-            rb = CATALOG['kits'][zb['kit']]['r'] * zb.get('scale', 1)
-            if d < ra + rb:
-                warnings.append(f'zones[{ia}] 和 zones[{ib}] 距离 {d:.1f}，小于占地半径之和 {ra + rb:.1f}，可能重叠')
+
+    def check_zone_list(zones, label):
+        need(isinstance(zones, list) and 1 <= len(zones) <= lim['zones_max'],
+             f'{label} 需要 1~{lim["zones_max"]} 个')
+        ids = set()
+        placed = []
+        for i, z in enumerate(zones):
+            lab = f'{label}[{i}]'
+            need(isinstance(z, dict), lab + ' 必须是对象')
+            need(z.get('kit') in CATALOG['kits'], f'{lab}.kit 只能是：' + ' / '.join(CATALOG['kits']))
+            check_text(z.get('name', ''), lab + '.name', 10)
+            need(z.get('name'), lab + '.name 不能为空')
+            if 'info' in z:
+                check_text(z['info'], lab + '.info', 14)
+            zid = z.get('id', f'{label}{i}')
+            need(zid not in ids, f'{lab}.id 重复：{zid}')
+            ids.add(zid)
+            if 'value' in z:
+                need(is_num(z['value']) and 0 <= z['value'] <= 1, f'{lab}.value 是 0~1 的小数')
+            if 'scale' in z:
+                need(is_num(z['scale']) and 0.5 <= z['scale'] <= 1.6, f'{lab}.scale 是 0.5~1.6')
+            if 'rot' in z:
+                need(is_num(z['rot']), f'{lab}.rot 是角度（数字）')
+            if 'pos' in z:
+                p = z['pos']
+                need(isinstance(p, list) and len(p) == 2 and all(is_num(v) for v in p), f'{lab}.pos 是 [x, z]')
+                need(lim['x'][0] <= p[0] <= lim['x'][1] and lim['z'][0] <= p[1] <= lim['z'][1],
+                     f'{lab}.pos 超出范围：x 在 {lim["x"]}，z 在 {lim["z"]}')
+                if s.get('base') == 'book' and abs(p[0]) < 1.3:
+                    warnings.append(f'{lab} 太靠近书脊（|x|<1.3），建筑会压在折缝上')
+            panel = z.get('panel', {})
+            need(isinstance(panel, dict), lab + '.panel 必须是对象')
+            for f in ['lead', 'text', 'itemsTitle', 'checklistTitle']:
+                if f in panel:
+                    check_text(panel[f], f'{lab}.panel.{f}', 600)
+            if 'chips' in panel:
+                need(isinstance(panel['chips'], list) and all(isinstance(c, dict) and isinstance(c.get('k'), str) for c in panel['chips']), lab + '.panel.chips 是 [{k, v}]')
+            if 'items' in panel:
+                need(isinstance(panel['items'], list) and all(isinstance(c, dict) and isinstance(c.get('t'), str) for c in panel['items']), lab + '.panel.items 是 [{t, s}]')
+            if 'checklist' in panel:
+                need(isinstance(panel['checklist'], list) and all(isinstance(c, dict) and isinstance(c.get('t'), str) and isinstance(c.get('done', False), bool) for c in panel['checklist']), lab + '.panel.checklist 是 [{t, done:true/false}]')
+            if 'progress' in panel:
+                pr = panel['progress']
+                need(isinstance(pr, dict) and is_num(pr.get('value')) and 0 <= pr['value'] <= 1, lab + '.panel.progress.value 是 0~1')
+            if 'tags' in panel:
+                need(isinstance(panel['tags'], list) and all(isinstance(t, str) for t in panel['tags']), lab + '.panel.tags 是文字数组')
+            placed.append((z, i))
+        # 粗略检查显式坐标的重叠（同页内才查；不同页不同时出现）
+        exp = [(z, i) for z, i in placed if 'pos' in z]
+        for a in range(len(exp)):
+            for b in range(a + 1, len(exp)):
+                za, ia = exp[a]
+                zb, ib = exp[b]
+                d = math.dist(za['pos'], zb['pos'])
+                ra = CATALOG['kits'][za['kit']]['r'] * za.get('scale', 1)
+                rb = CATALOG['kits'][zb['kit']]['r'] * zb.get('scale', 1)
+                if d < ra + rb:
+                    warnings.append(f'{label}[{ia}] 和 {label}[{ib}] 距离 {d:.1f}，小于占地半径之和 {ra + rb:.1f}，可能重叠')
+
+    if has_pages:
+        pages = s['pages']
+        pmax = lim.get('pages_max', 4)
+        need(isinstance(pages, list) and 2 <= len(pages) <= pmax, f'pages 需要 2~{pmax} 页')
+        for pi, pg in enumerate(pages):
+            pl = f'pages[{pi}]'
+            need(isinstance(pg, dict), pl + ' 必须是对象')
+            if 'name' in pg:
+                check_text(pg['name'], pl + '.name', 8)
+            if 'pageNotes' in pg:
+                need(isinstance(pg['pageNotes'], list) and all(isinstance(x, str) for x in pg['pageNotes']), pl + '.pageNotes 必须是文字数组')
+            pm = pg.get('modes') or {}
+            need(isinstance(pm, dict), pl + '.modes 必须是对象')
+            for m, v in pm.items():
+                need(m in ['morning', 'afternoon', 'night'], pl + '.modes 只能有 morning / afternoon / night')
+                need(isinstance(v, dict), f'{pl}.modes.{m} 必须是对象')
+                for f in ['name', 'sub']:
+                    if f in v:
+                        check_text(v[f], f'{pl}.modes.{m}.{f}', 40)
+            nz = len(pg.get('zones') or [])
+            for m, v in pm.items():
+                if 'focus' in v:
+                    need(isinstance(v['focus'], list) and all(isinstance(ix, int) and 0 <= ix < max(nz, 1) for ix in v['focus']),
+                         f'{pl}.modes.{m}.focus 是该页区域序号数组（从 0 开始，不能超过该页区域数）')
+            check_zone_list(pg.get('zones'), pl + '.zones')
+    else:
+        check_zone_list(s['zones'], 'zones')
 
 
 def load_json(path):
@@ -276,7 +313,11 @@ def main():
     for w in warnings:
         print('提醒：', w)
     print('已生成：', a.output.resolve())
-    print(f'底座 {scene.get("base", "island")} · 主题 {scene.get("theme", "cream")} · {len(scene["zones"])} 个区域 · 存储名 {scene["storageKey"]}')
+    if isinstance(scene.get('pages'), list) and len(scene['pages']) > 1:
+        zinfo = f'{len(scene["pages"])} 页（' + ' + '.join(str(len(p.get("zones") or [])) for p in scene['pages']) + ' 个区域）'
+    else:
+        zinfo = f'{len(scene["zones"])} 个区域'
+    print(f'底座 {scene.get("base", "island")} · 主题 {scene.get("theme", "cream")} · {zinfo} · 存储名 {scene["storageKey"]}')
     print('依赖：Three.js 与字体来自公开 CDN，需要联网打开；修改只保存在浏览器本地。')
     return 0
 

@@ -5,10 +5,13 @@
   const W = window.__WB, problems = [], info = {};
   if (!W) return { ok: false, problems: ['没有 window.__WB：页面没加载完，或模板被改坏（看控制台第一条报错）'] };
   const S = W.SCENE();
+  const pg = W.page ? W.page() : { cur: 0, total: 1, multi: false };
+  const pageZones = pg.multi ? (S.pages[pg.cur].zones || []) : S.zones;
   info.ready = W.ready; info.base = S.base; info.theme = S.theme; info.zones = W.zones.length;
+  info.page = pg.multi ? `${pg.cur + 1}/${pg.total}` : '1/1';
   info.loadingHidden = document.getElementById('loading').classList.contains('hide');
   if (!info.loadingHidden) problems.push('加载层还没消失（可能 CDN 加载失败或脚本报错）');
-  if (W.zones.length !== S.zones.length) problems.push(`配置 ${S.zones.length} 个区域，实际建出 ${W.zones.length} 个`);
+  if (W.zones.length !== pageZones.length) problems.push(`当前页配置 ${pageZones.length} 个区域，实际建出 ${W.zones.length} 个`);
   W.zones.forEach((z, i) => {
     if (![z.x, z.z, z.h, z.r].every(Number.isFinite)) problems.push(`区域 ${i} 坐标/尺寸不是数字`);
     if (!W.inside(z.x, z.z, -0.6)) problems.push(`区域 ${i}「${z.cfg.name}」中心在底座边缘外`);
