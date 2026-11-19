@@ -340,7 +340,7 @@ function normalize(s){
 function saveScene(){try{localStorage.setItem(STORE_KEY,JSON.stringify({v:2,scene:SCENE,page:curPage}));return true}catch(e){return false}}
 const zSig=zs=>zs.map(z=>[z.kit,z.pos||null,z.scale||1,z.rot||0]);
 const structSig=s=>JSON.stringify([s.base,s.quality,s.river,s.decor,s.pages?s.pages.map(p=>[zSig(p.zones),p.decor||null,p.backdrop||null]):zSig(s.zones)]);
-const KIT_NAMES=['well','noteTree','lookout','cottage','plaza','lighthouse','garden','windmill','tent','greenhouse','observatory','postOffice','bookTower','fountain','cafe','ferris'];
+const KIT_NAMES=['well','noteTree','lookout','cottage','plaza','lighthouse','garden','windmill','tent','greenhouse','observatory','postOffice','bookTower','fountain','cafe','ferris','submarine','jelly','whaleFall'];
 const BACKDROP_NAMES=['default','deep'];   // 立体书背景布景（buildBackdrop 用，catalog 同步）
 let SCENE=loadScene();
 const LOW=SCENE.quality==='low';
@@ -785,6 +785,51 @@ KITS.ferris=(g,z)=>{const H=2.3;for(const s of[-1,1]){for(const k of[-1,1]){cons
   updaters.push(dt=>{wheel.rotation.z+=dt*0.18;cabins.forEach(c=>c.rotation.z=-wheel.rotation.z)});
   return{h:H+R+0.4,r:1.5,dist:9}};
 
+/* 17 潜水艇：圆艇身 + 转动的尾桨 + 夜亮舷窗（探索/远行/执行中/移动基地） */
+KITS.submarine=(g,z)=>{const sub=new THREE.Group();g.add(sub);
+  const body=add(sub,cyl(0.44,0.48,2.1,20),std('butter',{roughness:.75}),0,0.72,0);body.rotation.z=Math.PI/2;
+  add(sub,rbox(0.54,0.44,0.42,0.16),std('butter'),-0.12,1.18,0);
+  add(sub,cyl(0.026,0.026,0.68,6),metal(),-0.12,1.66,0);add(sub,rbox(0.12,0.14,0.03,0.02),std('accent2'),-0.12,1.94,0.06);
+  for(const s of[-1,1]){const f=add(sub,rbox(0.38,0.24,0.05,0.03),std('accent2'),s*0.42,1.0,s*0.46);f.rotation.x=s*0.25}
+  add(sub,rbox(0.3,0.56,0.05,0.03),std('accent2'),-1.2,1.2,0);
+  const wg=windowGlow();for(let i=0;i<3;i++)add(sub,new THREE.CircleGeometry(0.095,16),wg,-0.4+i*0.4,0.78,0.49);
+  for(const [x,zz] of[[-0.75,0.26],[0.65,0.26],[-0.75,-0.26],[0.65,-0.26]])add(sub,rbox(0.1,0.36,0.1,0.04),std('ink'),x,0.18,zz);
+  const prop=new THREE.Group();prop.position.set(-1.48,0.72,0);sub.add(prop);
+  for(let i=0;i<3;i++){const b=add(prop,rbox(0.04,0.28,0.02,0.01),metal(),0,0.14,0);b.rotation.x=i/3*Math.PI*2}
+  ball(sub,0.05,glow('accent2','accent2',0.3,1.8),-1.55,0.72,0);
+  updaters.push(dt=>{prop.rotation.x+=dt*2.6});
+  updaters.push((dt,t)=>{sub.position.y=Math.sin(t*0.9)*0.045;sub.rotation.z=Math.sin(t*0.7)*0.02});
+  return{h:2.2,r:1.5,dist:7.5}};
+
+/* 18 水母灯：发光伞盖缓缓浮动，触须轻摆，两只小的绕圈（灵感/夜思/氛围/治愈） */
+KITS.jelly=(g,z)=>{
+  const jm=glow('butter','butter',0.35,2.4,{transparent:true,opacity:0.5,roughness:.3,side:THREE.DoubleSide,depthWrite:false});
+  const j=new THREE.Group();j.position.y=1.55;g.add(j);
+  add(j,new THREE.SphereGeometry(0.5,24,14,0,Math.PI*2,0,Math.PI/2),jm,0,0,0);
+  ball(j,0.16,glow('cream','butter',0.9,3.0),0,-0.02,0);
+  const tent=[];
+  for(let i=0;i<5;i++){const a=i/5*Math.PI*2;const tt=add(j,cyl(0.016,0.005,0.95,5),std('butter',{transparent:true,opacity:0.45,roughness:.5}),Math.cos(a)*0.3,-0.5,Math.sin(a)*0.3);tt.userData.ph=a;tent.push(tt)}
+  updaters.push((dt,t)=>{j.position.y=1.55+Math.sin(t*0.8)*0.12;j.rotation.y=Math.sin(t*0.4)*0.15;tent.forEach((tt,i)=>{tt.rotation.x=Math.sin(t*1.1+tt.userData.ph)*0.12;tt.rotation.z=Math.cos(t*0.9+tt.userData.ph*1.7)*0.12})});
+  for(let i=0;i<2;i++){const s=new THREE.Group();s.userData.ph=i*Math.PI;g.add(s);
+    add(s,new THREE.SphereGeometry(0.17,16,10,0,Math.PI*2,0,Math.PI/2),jm,0,0,0);ball(s,0.05,glow('cream','butter',0.7,2.4),0,-0.02,0);
+    for(let k=0;k<3;k++)add(s,cyl(0.007,0.004,0.34,4),std('butter',{transparent:true,opacity:0.4}),Math.cos(k/3*Math.PI*2)*0.07,-0.2,Math.sin(k/3*Math.PI*2)*0.07);
+    updaters.push((dt,t)=>{const a=t*0.22+s.userData.ph;s.position.set(Math.cos(a)*0.95,1.85+Math.sin(t*0.9+s.userData.ph)*0.16,Math.sin(a)*0.7)})};
+  add(g,rbox(0.72,0.22,0.5,0.08),std('rock'),0.25,0.11,0.3);ball(g,0.14,std('stone2'),-0.35,0.12,-0.2);
+  return{h:2.9,r:1.2,dist:7}};
+
+/* 19 鲸落拱门：肋骨半圆拱 + 脊骨 + 头骨（沉淀/里程碑/纪念/长期记忆） */
+KITS.whaleFall=(g,z)=>{
+  add(g,cyl(1.35,1.42,0.16,36),std('stone2'),0,0.08,0);add(g,cyl(1.15,1.2,0.1,32),std('stone'),0,0.2,0);
+  const bone=std('cream',{roughness:.92});
+  for(let i=0;i<5;i++){const R=1.6-i*0.22;const rib=add(g,new THREE.TorusGeometry(R,0.05,8,24,Math.PI),bone,-0.85+i*0.42,0.24,0);rib.rotation.y=(i%2?1:-1)*0.06}
+  for(let i=0;i<4;i++)add(g,cyl(0.07,0.085,0.24,8),bone,-0.62+i*0.4,0.32,0);
+  const sk=new THREE.Group();sk.position.set(1.25,0.62,0);sk.rotation.y=0.55;g.add(sk);
+  add(sk,new THREE.SphereGeometry(0.3,18,12),bone,0,0,0).scale.set(1,0.7,0.78);
+  add(sk,rbox(0.5,0.14,0.32,0.06),bone,-0.2,-0.06,0);
+  for(const s of[-1,1])ball(sk,0.05,glow('butter','butter',0.25,1.7),0.12,0.06,s*0.17);
+  for(let i=0;i<4;i++)ball(g,rnd(0.06,0.09),std(['accent','mist','butter','lav'][i]),rnd(-1,1),0.26,rnd(-0.75,0.75));
+  return{h:1.9,r:1.45,dist:7.5}};
+
 /* ================================================================
    §8 区域摆放：pos 省略时自动按 SLOTS 顺序摆放（按页构建，挂载见 §8.5）
    ================================================================ */
@@ -794,10 +839,25 @@ const validPos=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite);
 const pageRT=PAGES.map(()=>[]);   // 每页各自的运行时区域，只有当前页挂进 world
 /* 每页落位序列：SLOTS[0..7] 按页序旋转（错开布局），slot 8 因压书脊仅作末位后备 */
 const pageSlots=pi=>{const off=(pi*2)%8;return SLOTS.slice(0,8).slice(off).concat(SLOTS.slice(0,off),[SLOTS[8]])};
-function buildZones(pi){const used=new Set();const list=PAGES[pi].zones;const SL=pageSlots(pi);
-  list.forEach(cfg=>{if(validPos(cfg.pos))SL.forEach((s,j)=>{if(Math.hypot(s[0]-cfg.pos[0],s[1]-cfg.pos[1])<2.2)used.add(j)})});
-  list.forEach((cfg,i)=>{let pos=validPos(cfg.pos)?cfg.pos:null;
-  if(!pos){const k=SL.findIndex((s,j)=>!used.has(j));used.add(k);pos=SL[k>=0?k:i%SL.length]}
+/* 各积木占地半径（与 catalog.json kits.r 同步）——落位排序用，避免大体量建筑挤在一起 */
+const KIT_R={well:1.25,noteTree:1.45,lookout:1.3,cottage:1.6,plaza:1.6,lighthouse:1.15,garden:1.95,windmill:1.2,tent:1.35,greenhouse:1.5,observatory:1.3,postOffice:1.5,bookTower:1.2,fountain:1.35,cafe:1.35,ferris:1.5,submarine:1.5,jelly:1.2,whaleFall:1.45};
+function buildZones(pi){const list=PAGES[pi].zones;const SL=pageSlots(pi);
+  /* 显式 pos 直接落位并占掉邻近槽；自动落位按体量从大到小贪心选最远槽位 */
+  const slotOf=new Map();const placed=[];
+  list.forEach(cfg=>{if(validPos(cfg.pos)){const sc0=clamp(+cfg.scale||1,0.5,1.6);slotOf.set(cfg,cfg.pos);placed.push({x:cfg.pos[0],z:cfg.pos[1],r:(KIT_R[cfg.kit]||1.3)*sc0})}});
+  const used=new Array(SL.length).fill(false);
+  slotOf.forEach(pos=>SL.forEach((s,j)=>{if(Math.hypot(s[0]-pos[0],s[1]-pos[1])<2.2)used[j]=true}));
+  const auto=list.filter(cfg=>!validPos(cfg.pos)).slice().sort((a,b)=>(KIT_R[b.kit]||1.3)-(KIT_R[a.kit]||1.3));
+  auto.forEach(cfg=>{const ra=(KIT_R[cfg.kit]||1.3)*(+cfg.scale||1);
+    let best=-1,bestScore=-1e9;
+    SL.forEach((s,j)=>{if(used[j])return;
+      let score=99;placed.forEach(p=>{const d=Math.hypot(s[0]-p.x,s[1]-p.z)-(p.r+ra);if(d<score)score=d});
+      if(SCENE.base==='book'&&Math.abs(s[0])<1.3)score-=5;   // 压书脊的槽重罚（slot 8 只在别无选择时用）
+      score+=rand()*0.35;   // 页级随机扰动：各页布局不同，大体量仍被拉开
+      if(score>bestScore){bestScore=score;best=j}});
+    if(best<0)best=Math.max(0,used.indexOf(false));
+    used[best]=true;const pos=SL[best];slotOf.set(cfg,pos);placed.push({x:pos[0],z:pos[1],r:ra})});
+  list.forEach((cfg,i)=>{const pos=slotOf.get(cfg)||SLOTS[i%SLOTS.length];
   const g=new THREE.Group();g.position.set(pos[0],ground(pos[0],pos[1]),pos[1]);g.rotation.y=(+cfg.rot||0)*Math.PI/180;const sc=clamp(+cfg.scale||1,0.5,1.6);g.scale.setScalar(sc);g.userData.zone=i;g.userData.sc=sc;
   const z={cfg,i,x:pos[0],z:pos[1],group:g,value:zoneValue(cfg),update:null};
   const info=(KITS[cfg.kit]||KITS.cottage)(g,z)||{};z.h=(info.h||2.5)*sc;z.r=(info.r||1.3)*sc;z.dist=(info.dist||7.5)*Math.max(1,sc);pageRT[pi].push(z)})}
@@ -927,9 +987,9 @@ function buildDecor(pi){
   const D=Object.assign({},SCENE.decor,PAGES[pi].decor||{});
   const extra=pageExtra[pi];
   seed=20260101+(pi+1)*7919;
-  // 路灯（自动避让）
+  // 路灯（自动避让；点位按页旋转 → 各页夜景光池位置不同）
   const lampSpots=[[-6.0,-4.6],[-5.6,4.4],[4.8,-1.6],[4.0,1.5],[-2.2,-0.9],[8.9,-1.2],[0.6,3.2],[-0.6,-2.6]];const lamps=[];
-  lampSpots.forEach(([x,z],i)=>{if(!blocked(x,z,0.3,pi))lamps.push(lamp(x,z,i<6,g,extra))});
+  const lo=(pi*3)%lampSpots.length;lampSpots.slice(lo).concat(lampSpots.slice(0,lo)).forEach(([x,z],i)=>{if(!blocked(x,z,0.3,pi))lamps.push(lamp(x,z,i<6,g,extra))});
   // 树和灌木：固定候选点 + 随机补充
   const treeSpots=[[-9.2,-1.7,1,1],[-3.3,-4.5,1,0],[2.5,5.0,1.05,2],[9.2,-3.0,0.9,3],[-4.6,0.7,0.85,1],[-9.0,-3.2,0.85,0],[1.6,3.5,0.9,3],[9.4,0.8,0.75,2],[-9.3,3.9,0.95,0],[-1.3,-4.8,0.85,2],[-7.2,5.4,0.8,3],[1.4,-4.6,0.8,1],[5.2,5.6,0.8,0],[-5.4,-5.4,0.75,3],[9.0,5.2,0.8,1]];
   const tk=clamp(+D.trees||0,0,2);let placed=0;treeSpots.forEach(t=>{if(tk>0&&!blocked(t[0],t[1],0.35,pi)){fluffyTree(t[0],t[1],t[2],t[3],g,extra);placed++}});
@@ -943,8 +1003,8 @@ function buildDecor(pi){
   // 石板路（沿河两岸）
   if(HAS_RIVER){const stones=[];const L=riverCurve.getLength();for(let d=0.15;d<L;d+=0.36){const r=riverAt(d/L);for(const s of[-1,1]){const x=r.p.x+r.n.x*0.78*s+rnd(-0.04,0.04),z=r.p.z+r.n.z*0.78*s+rnd(-0.04,0.04);if(!BASE.inside(x,z,0)||pageRT[pi].some(zr=>Math.hypot(x-zr.x,z-zr.z)<zr.r))continue;stones.push([x,z])}}
     const sim=new THREE.InstancedMesh(cyl(0.13,0.14,0.035,12),std('stone'),stones.length);sim.receiveShadow=true;const o=new THREE.Object3D();stones.forEach((s,i)=>{o.position.set(s[0],ground(s[0],s[1])+0.02,s[1]);o.rotation.set(0,rand()*3,0);o.scale.set(rnd(0.8,1.15),1,rnd(0.75,1.05));o.updateMatrix();sim.setMatrixAt(i,o.matrix)});g.add(sim)}
-  // 花丛 + 草丛（InstancedMesh，颜色跟随主题）
-  const fk=clamp(+D.flowers||0,0,2);if(fk>0){const fcKeys=['accent','butter','lav','cream','mist','accent2','roof2'];const fl=[];let tries=0;const target=Math.round((LOW?220:620)*fk);
+  // 花丛 + 草丛（InstancedMesh，颜色跟随主题；色序按页轮转 → 各页花丛色调微移）
+  const fk=clamp(+D.flowers||0,0,2);if(fk>0){const fc0=['accent','butter','lav','cream','mist','accent2','roof2'];const fcKeys=fc0.slice(pi%7).concat(fc0.slice(0,pi%7));const fl=[];let tries=0;const target=Math.round((LOW?220:620)*fk);
     while(fl.length<target&&tries<9000){tries++;const cx=rnd(-9.6,9.6),cz=rnd(-5.8,6.2);if(blocked(cx,cz,0.05,pi))continue;const ck=Math.floor(rand()*fcKeys.length);const n=4+Math.floor(rand()*7);for(let k=0;k<n;k++){const x=cx+rnd(-0.28,0.28),z=cz+rnd(-0.28,0.28);if(blocked(x,z,0,pi))continue;fl.push([x,z,rand()<0.75?ck:Math.floor(rand()*fcKeys.length),rnd(0.08,0.2),rnd(0.7,1.25)])}}
     const o=new THREE.Object3D();const fim=new THREE.InstancedMesh(new THREE.SphereGeometry(0.055,8,6),glow(0xffffff,0xffffff,0.0,0.18),fl.length);const stemG=cyl(0.008,0.01,1,4);stemG.translate(0,0.5,0);const stim=new THREE.InstancedMesh(stemG,std('sage2'),fl.length);
     fl.forEach((f,i)=>{o.position.set(f[0],ground(f[0],f[1])+f[3],f[1]);o.scale.setScalar(f[4]);o.updateMatrix();fim.setMatrixAt(i,o.matrix);o.position.set(f[0],ground(f[0],f[1]),f[1]);o.scale.set(1,f[3],1);o.updateMatrix();stim.setMatrixAt(i,o.matrix)});
