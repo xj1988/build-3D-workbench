@@ -64,7 +64,7 @@ description: 用一份 JSON 配置生成奶油色微缩风 Three.js 3D 工作台
 - `name` ≤ 6 个字，`info` ≤ 10 个字（浮标里显示）。
 - `pos` **可以不写**，引擎会按 9 个预设空位自动摆放，保证不撞河、不出界。只有用户明确要求布局时才写（坐标规则见 [配置手册](references/config-schema.md#坐标)）。
 - 进度型积木（灯塔、广场、风车）给 `value`（0～1）或 `panel.progress`；数量型积木（便签树、菜园）由 `panel.items` 的条数决定。
-- **立体书要多页内容时用 `pages`**（2～4 页，←/→ 翻页，每页自己的 zones/pageNotes/modes，stats/track 等仍全局）：用户说「翻页看不同内容」「像一本书一样分章节」「分几页展示」时用。结构见 [配置手册](references/config-schema.md#7-pages多页翻页仅立体书)。
+- **立体书要多页内容时用 `pages`**（2～4 页，←/→ 翻页；每页自己的 zones/pageNotes/modes，场景布局、装饰、背景布景也按页独立——`backdrop:"deep"` 可换深海剪影布景；stats/track 等仍全局）：用户说「翻页看不同内容」「像一本书一样分章节」「分几页展示」「每页场景不同」时用。结构见 [配置手册](references/config-schema.md#7-pages多页翻页仅立体书)。
 
 **④ 文字**：`title`（≤ 12 字）、`subtitle`、`stats`（≤ 4 个计数卡）、`track`（底部进度条，2～7 步，不需要就删掉）、`modes` 三个时段的名字和一句话。
 

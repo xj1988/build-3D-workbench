@@ -328,6 +328,8 @@ function normalize(s){
     s.pages.forEach((p,pi)=>{p.name=String(p.name||('第 '+(pi+1)+' 页'));
       p.pageNotes=Array.isArray(p.pageNotes)?p.pageNotes.map(v=>String(v)).slice(0,3):undefined;
       p.modes=Object.assign({morning:{name:'晨间'},afternoon:{name:'午后'},night:{name:'深夜'}},p.modes&&typeof p.modes==='object'?p.modes:{});
+      p.decor=(p.decor&&typeof p.decor==='object')?Object.assign({},s.decor,p.decor):undefined;
+      p.backdrop=BACKDROP_NAMES.includes(p.backdrop)?p.backdrop:undefined;
       p.zones=normZones(p.zones,pi)});
   }else if(Array.isArray(s.pages)&&s.pages.length===1&&!s.zones.length){const p0=s.pages[0]||{};
     s.zones=normZones(p0.zones);if(Array.isArray(p0.pageNotes))s.pageNotes=p0.pageNotes.slice(0,3);
@@ -337,8 +339,9 @@ function normalize(s){
   return s}
 function saveScene(){try{localStorage.setItem(STORE_KEY,JSON.stringify({v:2,scene:SCENE,page:curPage}));return true}catch(e){return false}}
 const zSig=zs=>zs.map(z=>[z.kit,z.pos||null,z.scale||1,z.rot||0]);
-const structSig=s=>JSON.stringify([s.base,s.quality,s.river,s.decor,s.pages?s.pages.map(p=>zSig(p.zones)):zSig(s.zones)]);
+const structSig=s=>JSON.stringify([s.base,s.quality,s.river,s.decor,s.pages?s.pages.map(p=>[zSig(p.zones),p.decor||null,p.backdrop||null]):zSig(s.zones)]);
 const KIT_NAMES=['well','noteTree','lookout','cottage','plaza','lighthouse','garden','windmill','tent','greenhouse','observatory','postOffice','bookTower','fountain','cafe','ferris'];
+const BACKDROP_NAMES=['default','deep'];   // 立体书背景布景（buildBackdrop 用，catalog 同步）
 let SCENE=loadScene();
 const LOW=SCENE.quality==='low';
 /* 多页：pages 存在（≥2 页）时页级拥有 zones/pageNotes/modes，其余全局；否则整本书就是单页 */
@@ -448,12 +451,7 @@ BASES.book=(()=>{const PAGE_Y=0.95,GUT=0.25,PW=9.75;
       themeHooks.push(()=>redraw(tex));if(s<0)pageTexs.push(tex);else pageTexs.unshift(tex);
       const g=new THREE.PlaneGeometry(PW,13,80,1);g.rotateX(-Math.PI/2);g.translate(s*(GUT+PW/2),0,0);const pa=g.attributes.position;for(let i=0;i<pa.count;i++)pa.setY(i,ground(pa.getX(i))+0.004);g.computeVertexNormals();
       const p=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:tex,roughness:.95}));p.receiveShadow=true;book.add(p);groundMeshes.push(p)}
-    // 右页剪纸小镇 + 彩虹（立体书专属）
-    {let x=0.7;const houses=[];while(x<5.6){const w=0.45+rand()*0.35,h=0.6+rand()*0.9;houses.push([x,w,h]);x+=w+0.05}
-      const wallPts=[[0.7,-0.6]];houses.forEach(([x,w,h])=>{wallPts.push([x,h],[x+w,h])});wallPts.push([x,-0.6]);popLayer(paperShape(wallPts),'cream',-6.4,PAGE_Y);
-      const winM=glow('butter','butter',0.05,2.0);houses.forEach(([x,w,h],i)=>{popLayer(paperShape([[x-0.04,h],[x+w+0.04,h],[x+w/2,h+0.32+(i%2)*0.12]]),'roof2',-6.36,PAGE_Y);
-        for(let k=0;k<Math.floor(h/0.32);k++)popLayer(paperShape([[x+w/2-0.07,h-0.2-k*0.3],[x+w/2+0.07,h-0.2-k*0.3],[x+w/2+0.07,h-0.36-k*0.3],[x+w/2-0.07,h-0.36-k*0.3]]),null,-6.37,PAGE_Y,winM)})}
-    ['accent','butter','mist','lav'].forEach((c,i)=>{const R=2.1-i*0.28,r=R-0.28;const s=new THREE.Shape();s.absarc(7.75,0,R,0,Math.PI,false);s.absarc(7.75,0,r,Math.PI,0,true);popLayer(s,c,-6.42+i*0.002,PAGE_Y)});
+    // 右页剪纸小镇 + 彩虹已迁至 §9 buildBackdrop（每页可换布景）
     addShadowPlane(0)}
   return{ground,build,top:PAGE_Y,
     inside:(x,z,p=0)=>Math.abs(x)>0.7+p&&Math.abs(x)<9.6-p&&z<6.2-p&&z>-5.8+p,
@@ -534,8 +532,8 @@ function addShadowPlane(y,op=0.12){const p=new THREE.Mesh(new THREE.PlaneGeometr
 const BASE=BASES[SCENE.base];
 const ground=(x,z)=>BASE.ground(x,z);
 const popup=new THREE.Group();scene.add(popup);
-/** popLayer：立体书式剪纸层（立着的薄片） */
-function popLayer(shape,c,z,y,m){const me=add(popup,extrude(shape),m||std(c,{roughness:.95}),0,y-0.02,z);return me}
+/** popLayer：立体书式剪纸层（立着的薄片）；parent 缺省挂全局 popup，页级布景传 backdropGroups[pi] */
+function popLayer(shape,c,z,y,m,parent){const me=add(parent||popup,extrude(shape),m||std(c,{roughness:.95}),0,y-0.02,z);return me}
 function hills(x0,x1,base,amp,sd,step=0.25){const pts=[[x0,-0.6]];for(let x=x0;x<=x1+0.001;x+=step){const t=x*0.9+sd;pts.push([x,base+amp*(0.55*Math.sin(t)+0.3*Math.sin(t*2.3+1)+0.15*Math.sin(t*4.1))])}pts.push([x1,-0.6]);return paperShape(pts)}
 function pond(x,z,r){const y=ground(x,z);const s=add(world,new THREE.CircleGeometry(r+0.18,40),std('waterLight',{roughness:.95}),x,y+0.012,z);s.rotation.x=-Math.PI/2;s.castShadow=false;
   const w=add(world,new THREE.CircleGeometry(r,40),waterMat(),x,y+0.03,z);w.rotation.x=-Math.PI/2;w.castShadow=false;extraBlocks.push([x,z,r+0.15])}
@@ -575,11 +573,12 @@ function bridge(t){const {p,n}=riverAt(t);const g=new THREE.Group();g.position.s
     add(g,new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rp),20,0.02,5,false),std('wood2'))}
   extraBlocks.push([p.x,p.z,0.9,1]);bridgeList.push({p:p.clone(),n:n.clone()})}
 function onBridge(x,z){for(const b of bridgeList){const dx=x-b.p.x,dz=z-b.p.z;const along=dx*b.n.x+dz*b.n.z,side=-dx*b.n.z+dz*b.n.x;if(Math.abs(along)<1.0&&Math.abs(side)<0.3)return 0.36*(1-along*along)+0.1}return -1}
-/** blocked：散布花草、树木时判断是否被占用（对所有页的区域避让——任一页挂载时都不穿模） */
-function blocked(x,z,pad=0){if(!BASE.inside(x,z,pad))return true;
-  for(const zs of pageRT)for(const zr of zs)if(Math.hypot(x-zr.x,z-zr.z)<zr.r+pad)return true;
+/** blocked：散布装饰时判断占用（pi 缺省=当前页；装饰只避让自己页的区域，随页换装） */
+function blocked(x,z,pad=0,pi=curPage){if(!BASE.inside(x,z,pad))return true;
+  for(const zr of (pageRT[pi]||[]))if(Math.hypot(x-zr.x,z-zr.z)<zr.r+pad)return true;
   for(const c of extraBlocks)if(Math.hypot(x-c[0],z-c[1])<c[2]+pad)return true;
   return HAS_RIVER&&riverDist(x,z)<0.62+pad}
+function pushExtra(e,extra){extraBlocks.push(e);if(extra)extra.push(e)}
 
 /* ================================================================
    §7 KITS 建筑积木库 —— 每个积木在本地坐标建模（地面 y=0）
@@ -793,10 +792,12 @@ const SLOTS=[[-8.2,-4.6],[-4.2,-2.4],[-8.4,1.4],[-2.8,4.8],[3.0,0.4],[7.3,-4.5],
 const zoneGroups=[];   // 当前页的拾取目标（pickZone / walkClick 射线用）
 const validPos=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite);
 const pageRT=PAGES.map(()=>[]);   // 每页各自的运行时区域，只有当前页挂进 world
-function buildZones(pi){const used=new Set();const list=PAGES[pi].zones;
-  list.forEach(cfg=>{if(validPos(cfg.pos))SLOTS.forEach((s,j)=>{if(Math.hypot(s[0]-cfg.pos[0],s[1]-cfg.pos[1])<2.2)used.add(j)})});
+/* 每页落位序列：SLOTS[0..7] 按页序旋转（错开布局），slot 8 因压书脊仅作末位后备 */
+const pageSlots=pi=>{const off=(pi*2)%8;return SLOTS.slice(0,8).slice(off).concat(SLOTS.slice(0,off),[SLOTS[8]])};
+function buildZones(pi){const used=new Set();const list=PAGES[pi].zones;const SL=pageSlots(pi);
+  list.forEach(cfg=>{if(validPos(cfg.pos))SL.forEach((s,j)=>{if(Math.hypot(s[0]-cfg.pos[0],s[1]-cfg.pos[1])<2.2)used.add(j)})});
   list.forEach((cfg,i)=>{let pos=validPos(cfg.pos)?cfg.pos:null;
-  if(!pos){const k=SLOTS.findIndex((s,j)=>!used.has(j));used.add(k);pos=SLOTS[k>=0?k:i%SLOTS.length]}
+  if(!pos){const k=SL.findIndex((s,j)=>!used.has(j));used.add(k);pos=SL[k>=0?k:i%SL.length]}
   const g=new THREE.Group();g.position.set(pos[0],ground(pos[0],pos[1]),pos[1]);g.rotation.y=(+cfg.rot||0)*Math.PI/180;const sc=clamp(+cfg.scale||1,0.5,1.6);g.scale.setScalar(sc);g.userData.zone=i;g.userData.sc=sc;
   const z={cfg,i,x:pos[0],z:pos[1],group:g,value:zoneValue(cfg),update:null};
   const info=(KITS[cfg.kit]||KITS.cottage)(g,z)||{};z.h=(info.h||2.5)*sc;z.r=(info.r||1.3)*sc;z.dist=(info.dist||7.5)*Math.max(1,sc);pageRT[pi].push(z)})}
@@ -808,10 +809,17 @@ function zoneValue(cfg){if(Number.isFinite(+cfg.value)&&cfg.value!==null&&cfg.va
    ================================================================ */
 let turning=false;
 const turn={on:false,t:0,from:0,to:0,dir:1,mounted:false};
+const decorGroups=PAGES.map(()=>null);    // 每页装饰组（§9 buildDecor 填充）
+const backdropGroups=PAGES.map(()=>null); // 每页背景布景组（§9 buildBackdrop 填充）
+const baseExtra=[];                       // 底座级碰撞项快照（桥/池塘，buildRiver 后填充）
+const pageExtra=PAGES.map(()=>[]);        // 页级装饰碰撞项（树/灯/灌丛），随页换装
 function mountPage(pi){
   pageRT.forEach((zs,j)=>{if(j!==pi)zs.forEach(z=>{if(z.group.parent)world.remove(z.group)})});
   zoneRT=pageRT[pi];curPage=pi;
   zoneGroups.length=0;zoneRT.forEach((z,i)=>{zoneGroups[i]=z.group;if(!z.group.parent)world.add(z.group)});
+  backdropGroups.forEach((g,j)=>{if(g)g.visible=j===pi});
+  decorGroups.forEach((g,j)=>{if(g)g.visible=j===pi});
+  extraBlocks.length=0;extraBlocks.push(...baseExtra,...pageExtra[pi]);
   activeZone=-1;refreshBrand()}
 function refreshPageChip(){const nav=$('pageNav');if(!MULTI){nav.style.display='none';return}
   nav.style.display='';
@@ -835,6 +843,9 @@ function turnPage(dir){
   turning=true;turn.on=true;turn.t=0;turn.from=curPage;turn.to=target;turn.dir=dir>0?1:-1;turn.mounted=false;
   activeZone=-1;labelsEl.style.visibility='hidden';
   $('pgPrev').disabled=$('pgNext').disabled=true;
+  /* 旧页装饰/背景立即隐去（路灯点光随组消失，不会在地面留光斑） */
+  if(decorGroups[turn.from])decorGroups[turn.from].visible=false;
+  if(backdropGroups[turn.from])backdropGroups[turn.from].visible=false;
   sheetTitle=PAGES[target].name||`第 ${target+1} 页`;redraw(sheetTex);pageTexs.forEach(redraw)}
 updaters.push(dt=>{
   if(!turn.on)return;turn.t+=dt;const T=turn.t,dir=turn.dir,a0=dir>0?0.9:2.24,a1=dir>0?2.75:0.39;
@@ -844,12 +855,20 @@ updaters.push(dt=>{
   if(T>=0.45&&T<=1.95){const k=ease(clamp((T-0.45)/1.45,0,1));pagePivot.rotation.z=a0+(a1-a0)*k;pagePivot.visible=true;
     sheetMat.opacity=clamp(Math.abs(a1-pagePivot.rotation.z)/0.4,0,1)}
   else if(T>1.95)pagePivot.visible=false;
-  /* 阶段 3（1.5s 挂载新页；1.55s 起新区域依次弹起） */
-  if(T>=1.5&&!turn.mounted){turn.mounted=true;mountPage(turn.to);pageRT[turn.to].forEach(z=>z.group.scale.setScalar(0.001))}
+  /* 阶段 3（1.5s 挂载新页；1.45s 背景先立起、1.55s 装饰与区域依次弹起——远到近） */
+  if(T>=1.5&&!turn.mounted){turn.mounted=true;mountPage(turn.to);pageRT[turn.to].forEach(z=>z.group.scale.setScalar(0.001));
+    const bg=backdropGroups[turn.to],dc=decorGroups[turn.to];
+    if(bg){bg.scale.y=0.001;bg.visible=false}if(dc){dc.scale.y=0.001;dc.visible=false}}
+  if(turn.mounted&&T>=1.45){const bg=backdropGroups[turn.to];const k=clamp((T-1.45)/0.5,0,1);
+    if(k>0&&bg){bg.visible=true;bg.scale.y=Math.max(0.001,easeBack(k))}}
+  if(turn.mounted&&T>=1.55){const dc=decorGroups[turn.to];const k=clamp((T-1.55)/0.5,0,1);
+    if(k>0&&dc){dc.visible=true;dc.scale.y=Math.max(0.001,easeBack(k))}}
   if(turn.mounted&&T>=1.55)pageRT[turn.to].forEach((z,i)=>{const k=clamp((T-1.55-i*0.07)/0.55,0,1);if(k>0)z.group.scale.setScalar(Math.max(0.001,z.group.userData.sc*easeBack(k)))});
   /* 收尾 */
   if(T>=2.5){turn.on=false;turning=false;turn.mounted=false;pagePivot.visible=false;sheetMat.opacity=1;
     pageRT[turn.to].forEach(z=>z.group.scale.setScalar(z.group.userData.sc));
+    const bg=backdropGroups[turn.to],dc=decorGroups[turn.to];
+    if(bg){bg.scale.y=1;bg.visible=true}if(dc){dc.scale.y=1;dc.visible=true}
     buildLabels();labelsEl.style.visibility='';refreshLabels();refreshPageChip();saveScene();
     toast(`翻到第 ${curPage+1} 页`+(PAGES[curPage].name?` · ${PAGES[curPage].name}`:''))}
 });
@@ -861,29 +880,89 @@ const lampLights=[];const bulbSets=[];const worldBulbs=[];const flags=[];
 function bulbMesh(parent,positions,size=0.05){if(!positions.length)return null;const im=new THREE.InstancedMesh(new THREE.SphereGeometry(size,8,6),new THREE.MeshBasicMaterial({color:0xffffff}),positions.length);
   const o=new THREE.Object3D();positions.forEach((p,i)=>{o.position.copy(p);o.updateMatrix();im.setMatrixAt(i,o.matrix);im.setColorAt(i,new THREE.Color(1,1,1))});
   im.userData.ph=positions.map(()=>rand()*6.28);im.userData.cols=positions.map((p,i)=>[[1,0.82,0.55],[1,0.7,0.6],[0.95,0.9,0.7],[0.85,0.85,1]][i%4]);parent.add(im);bulbSets.push(im);return im}
-function garland(a,b,sag=0.25,n=12){const pts=[];for(let i=0;i<=24;i++){const t=i/24;const p=a.clone().lerp(b,t);p.y-=sag*Math.sin(Math.PI*t);pts.push(p)}
-  world.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),30,0.012,4,false),std('ink')));for(let i=1;i<n;i++){const t=i/n;const p=a.clone().lerp(b,t);p.y-=sag*Math.sin(Math.PI*t)+0.05;worldBulbs.push(p)}}
+function garland(a,b,sag=0.25,n=12,bulbs=null,tubeParent=null){const pts=[];for(let i=0;i<=24;i++){const t=i/24;const p=a.clone().lerp(b,t);p.y-=sag*Math.sin(Math.PI*t);pts.push(p)}
+  (tubeParent||world).add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),30,0.012,4,false),std('ink')));const arr=bulbs||worldBulbs;for(let i=1;i<n;i++){const t=i/n;const p=a.clone().lerp(b,t);p.y-=sag*Math.sin(Math.PI*t)+0.05;arr.push(p)}}
 function bunting(parent,a,b,n=9,sag=0.18){const pts=[];for(let i=0;i<=20;i++){const t=i/20;const p=a.clone().lerp(b,t);p.y-=sag*Math.sin(Math.PI*t);pts.push(p)}
   add(parent,new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),24,0.01,4,false),std('ink'));const tg=new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(-0.09,0),new THREE.Vector2(0.09,0),new THREE.Vector2(0,-0.2)]));
   const ang=Math.atan2(-(b.z-a.z),b.x-a.x);const cs=['accent','butter','mist','lav','cream'];for(let i=1;i<n;i++){const t=i/n;const p=a.clone().lerp(b,t);p.y-=sag*Math.sin(Math.PI*t);const f=add(parent,tg,std(cs[i%5],{side:THREE.DoubleSide,roughness:.9}),p.x,p.y,p.z);f.rotation.y=ang;f.userData.ph=i;flags.push(f)}}
 updaters.push((dt,t)=>{flags.forEach(f=>{f.rotation.x=Math.sin(t*2.2+f.userData.ph)*0.25})});
 const G=(x,z,h)=>new THREE.Vector3(x,ground(x,z)+h,z);
-function lamp(x,z,light=true){const g=new THREE.Group();g.position.set(x,ground(x,z),z);world.add(g);
+function lamp(x,z,light=true,parent=world,extra=null){const g=new THREE.Group();g.position.set(x,ground(x,z),z);parent.add(g);
   add(g,cyl(0.12,0.15,0.08,16),std('ink'),0,0.04,0);add(g,cyl(0.035,0.04,1.3,10),std('ink'),0,0.68,0);add(g,new THREE.ConeGeometry(0.17,0.12,16),std('ink'),0,1.42,0);ball(g,0.11,glow('cream','butter',0.4,3.2),0,1.3,0);
-  if(light&&!LOW){const L=new THREE.PointLight(0xFFC98A,0,6,1.5);L.position.set(0,1.25,0);g.add(L);lampLights.push(L)}extraBlocks.push([x,z,0.3]);return G(x,z,1.46)}
+  if(light&&!LOW){const L=new THREE.PointLight(0xFFC98A,0,6,1.5);L.position.set(0,1.25,0);g.add(L);lampLights.push(L)}pushExtra([x,z,0.3],extra);return G(x,z,1.46)}
 const FOL=[['sage','sage3'],['butter','cream'],['accent','roof2'],['lav','mist']];
 function treeAt(parent,x,y,s=1,kind=0){const g=new THREE.Group();g.position.set(x,y,0);g.scale.setScalar(s);parent.add(g);const [c1,c2]=FOL[kind%4];
   add(g,cyl(0.07,0.11,0.8,10),std('wood2'),0,0.4,0);ball(g,0.48,soft(c1),0,1.05,0);ball(g,0.34,soft(c2),0.32,0.92,0.12);ball(g,0.32,soft(c1),-0.3,0.95,-0.1);ball(g,0.3,soft(c2),0.05,1.38,-0.05);return g}
-function fluffyTree(x,z,s,kind){const g=treeAt(world,0,0,s,kind);g.position.set(x,ground(x,z),z);extraBlocks.push([x,z,0.55*s])}
-function bush(x,z,s=1,kind=0){const g=new THREE.Group();g.position.set(x,ground(x,z),z);g.scale.setScalar(s);world.add(g);const [c1,c2]=FOL[kind%4];
-  ball(g,0.36,soft(c1),0,0.25,0);ball(g,0.26,soft(c2),0.3,0.18,0.1);ball(g,0.24,soft(c1),-0.27,0.17,-0.06);extraBlocks.push([x,z,0.5*s])}
-function buildDecor(){const D=SCENE.decor;
-  // 背景剪纸山 + 纸树 + 纸太阳/月亮
-  const bk=BASE.back,by=BASE.top;
-  popLayer(hills(bk.x0,bk.x1,1.25,0.55,1.3),'mist',bk.z-0.2,by);popLayer(hills(bk.x0+0.05,bk.x1-0.05,0.55,0.35,3.1),'sage3',bk.z,by);
-  if(SCENE.base!=='book'){popLayer(hills(bk.x0*0.6+bk.x1*0.4,bk.x1,0.75,0.3,5.2),'grass',bk.z+0.05,by)}else popLayer(hills(0.45,9.75,0.5,0.3,5.2),'sage3',-6.15,by);
-  [[0.18,1.15,'sage'],[0.25,0.9,'butter'],[0.75,1.05,'accent'],[0.85,0.8,'sage3']].forEach(t=>{const x=lerp(bk.x0,bk.x1,t[0]);const tr=new THREE.Group();tr.position.set(x,0,bk.z+0.2);popup.add(tr);
+function fluffyTree(x,z,s,kind,parent=world,extra=null){const g=treeAt(parent,0,0,s,kind);g.position.set(x,ground(x,z),z);pushExtra([x,z,0.55*s],extra)}
+function bush(x,z,s=1,kind=0,parent=world,extra=null){const g=new THREE.Group();g.position.set(x,ground(x,z),z);g.scale.setScalar(s);parent.add(g);const [c1,c2]=FOL[kind%4];
+  ball(g,0.36,soft(c1),0,0.25,0);ball(g,0.26,soft(c2),0.3,0.18,0.1);ball(g,0.24,soft(c1),-0.27,0.17,-0.06);pushExtra([x,z,0.5*s],extra)}
+/* 每页背景布景（仅立体书）：default=远山+纸树+小镇+彩虹；deep=海沟剪影+发光海草 */
+function buildBackdrop(pi){if(SCENE.base!=='book')return;
+  const bk=BASE.back,by=BASE.top;const deep=PAGES[pi].backdrop==='deep';
+  const g=new THREE.Group();world.add(g);backdropGroups[pi]=g;
+  popLayer(hills(bk.x0,bk.x1,1.25,0.55,1.3),deep?'water':'mist',bk.z-0.2,by,null,g);
+  popLayer(hills(bk.x0+0.05,bk.x1-0.05,0.55,0.35,3.1),deep?'rock2':'sage3',bk.z,by,null,g);
+  popLayer(hills(0.45,9.75,0.5,0.3,5.2),deep?'rock2':'sage3',-6.15,by,null,g);
+  [[0.18,1.15,'sage'],[0.25,0.9,'butter'],[0.75,1.05,'accent'],[0.85,0.8,'sage3']].forEach(t=>{const x=lerp(bk.x0,bk.x1,t[0]);const tr=new THREE.Group();tr.position.set(x,0,bk.z+0.2);g.add(tr);
     add(tr,new THREE.BoxGeometry(0.05,t[1],0.04),std('wood2'),0,by+t[1]/2,0);const c=new THREE.Shape();c.absarc(0,0,0.32,0,Math.PI*2,false);add(tr,extrude(c),std(t[2],{roughness:.95}),0,by+t[1]+0.2,0)});
+  if(!deep){
+    let x=0.7;const houses=[];while(x<5.6){const w=0.45+rand()*0.35,h=0.6+rand()*0.9;houses.push([x,w,h]);x+=w+0.05}
+    const wallPts=[[0.7,-0.6]];houses.forEach(([hx,w,h])=>{wallPts.push([hx,h],[hx+w,h])});wallPts.push([x,-0.6]);popLayer(paperShape(wallPts),'cream',-6.4,by,null,g);
+    const winM=glow('butter','butter',0.05,2.0);houses.forEach(([hx,w,h],i)=>{popLayer(paperShape([[hx-0.04,h],[hx+w+0.04,h],[hx+w/2,h+0.32+(i%2)*0.12]]),'roof2',-6.36,by,null,g);
+      for(let k=0;k<Math.floor(h/0.32);k++)popLayer(paperShape([[hx+w/2-0.07,h-0.2-k*0.3],[hx+w/2+0.07,h-0.2-k*0.3],[hx+w/2+0.07,h-0.36-k*0.3],[hx+w/2-0.07,h-0.36-k*0.3]]),null,-6.37,by,winM,g)});
+    ['accent','butter','mist','lav'].forEach((c,i)=>{const R=2.1-i*0.28,r=R-0.28;const s=new THREE.Shape();s.absarc(7.75,0,R,0,Math.PI,false);s.absarc(7.75,0,r,Math.PI,0,true);popLayer(s,c,-6.42+i*0.002,by,null,g)});
+  }else{
+    popLayer(hills(0.6,9.7,0.9,0.75,7.7),'ink',-6.28,by,null,g);
+    const kelpM=std('sage3',{roughness:.95});
+    [[1.6,1.9],[3.1,2.4],[4.9,2.0],[6.3,2.6],[8.2,2.1]].forEach(([kx,kh],i)=>{const k=new THREE.Group();k.position.set(kx,ground(kx)-0.02,-5.6+(i%2)*0.25);g.add(k);
+      add(k,cyl(0.03,0.05,kh,6),kelpM,0,kh/2,0);
+      for(let b=0;b<3;b++)ball(k,rnd(0.1,0.16),soft('sage'),rnd(-0.12,0.12),kh*(0.45+0.2*b),rnd(-0.1,0.1));
+      ball(k,0.09,glow('butter','butter',0.3,1.8),0,kh+0.06,0);
+      updaters.push((dt,t)=>{k.rotation.z=Math.sin(t*0.7+i*1.3)*0.12})});
+  }
+  g.traverse(o=>{if(o.isMesh)o.receiveShadow=true})}
+/* 每页表面装饰：路灯/树/灌木/串灯/石板路/花草（挂 decorGroups[pi]，随页换装；种子按页偏移） */
+function buildDecor(pi){
+  const g=new THREE.Group();world.add(g);decorGroups[pi]=g;
+  const D=Object.assign({},SCENE.decor,PAGES[pi].decor||{});
+  const extra=pageExtra[pi];
+  seed=20260101+(pi+1)*7919;
+  // 路灯（自动避让）
+  const lampSpots=[[-6.0,-4.6],[-5.6,4.4],[4.8,-1.6],[4.0,1.5],[-2.2,-0.9],[8.9,-1.2],[0.6,3.2],[-0.6,-2.6]];const lamps=[];
+  lampSpots.forEach(([x,z],i)=>{if(!blocked(x,z,0.3,pi))lamps.push(lamp(x,z,i<6,g,extra))});
+  // 树和灌木：固定候选点 + 随机补充
+  const treeSpots=[[-9.2,-1.7,1,1],[-3.3,-4.5,1,0],[2.5,5.0,1.05,2],[9.2,-3.0,0.9,3],[-4.6,0.7,0.85,1],[-9.0,-3.2,0.85,0],[1.6,3.5,0.9,3],[9.4,0.8,0.75,2],[-9.3,3.9,0.95,0],[-1.3,-4.8,0.85,2],[-7.2,5.4,0.8,3],[1.4,-4.6,0.8,1],[5.2,5.6,0.8,0],[-5.4,-5.4,0.75,3],[9.0,5.2,0.8,1]];
+  const tk=clamp(+D.trees||0,0,2);let placed=0;treeSpots.forEach(t=>{if(tk>0&&!blocked(t[0],t[1],0.35,pi)){fluffyTree(t[0],t[1],t[2],t[3],g,extra);placed++}});
+  for(let k=0;k<400&&placed<Math.round(15*tk);k++){const x=rnd(-9.6,9.6),z=rnd(-5.6,6.2);if(blocked(x,z,0.5,pi))continue;fluffyTree(x,z,rnd(0.7,1),Math.floor(rand()*4),g,extra);placed++}
+  const bushSpots=[[-6.3,3.3,0.8,2],[-0.9,4.6,0.7,0],[9.3,-1.9,0.7,0],[2.4,-5.4,0.7,3],[-9.4,-0.4,0.7,2],[0.9,-2.8,0.6,0],[-2.0,1.0,0.6,3],[8.4,1.5,0.6,1]];bushSpots.forEach(b=>{if(tk>0&&!blocked(b[0],b[1],0.3,pi))bush(b[0],b[1],b[2],b[3],g,extra)});
+  // 串灯：每盏路灯连到本页最近区域顶部
+  if(D.garlands!==false){const pageBulbs=[];
+    lamps.forEach(L=>{let best=null,bd=4.2;pageRT[pi].forEach(z=>{const d=Math.hypot(z.x-L.x,z.z-L.z);if(d<bd){bd=d;best=z}});if(best)garland(L,G(best.x,best.z,Math.min(best.h*0.72,2.6)),0.28,12,pageBulbs,g)});
+    if(HAS_RIVER){const c=riverAt(0.5);const a=c.p.clone().add(c.n.clone().multiplyScalar(1.25)),b=c.p.clone().sub(c.n.clone().multiplyScalar(1.25));if(!blocked(a.x,a.z,0.2,pi)&&!blocked(b.x,b.z,0.2,pi)){const pa=pole(a.x,a.z,1.7,g,extra),pb=pole(b.x,b.z,1.7,g,extra);garland(pa,pb,0.32,14,pageBulbs,g)}}
+    bulbMesh(g,pageBulbs,0.05)}
+  // 石板路（沿河两岸）
+  if(HAS_RIVER){const stones=[];const L=riverCurve.getLength();for(let d=0.15;d<L;d+=0.36){const r=riverAt(d/L);for(const s of[-1,1]){const x=r.p.x+r.n.x*0.78*s+rnd(-0.04,0.04),z=r.p.z+r.n.z*0.78*s+rnd(-0.04,0.04);if(!BASE.inside(x,z,0)||pageRT[pi].some(zr=>Math.hypot(x-zr.x,z-zr.z)<zr.r))continue;stones.push([x,z])}}
+    const sim=new THREE.InstancedMesh(cyl(0.13,0.14,0.035,12),std('stone'),stones.length);sim.receiveShadow=true;const o=new THREE.Object3D();stones.forEach((s,i)=>{o.position.set(s[0],ground(s[0],s[1])+0.02,s[1]);o.rotation.set(0,rand()*3,0);o.scale.set(rnd(0.8,1.15),1,rnd(0.75,1.05));o.updateMatrix();sim.setMatrixAt(i,o.matrix)});g.add(sim)}
+  // 花丛 + 草丛（InstancedMesh，颜色跟随主题）
+  const fk=clamp(+D.flowers||0,0,2);if(fk>0){const fcKeys=['accent','butter','lav','cream','mist','accent2','roof2'];const fl=[];let tries=0;const target=Math.round((LOW?220:620)*fk);
+    while(fl.length<target&&tries<9000){tries++;const cx=rnd(-9.6,9.6),cz=rnd(-5.8,6.2);if(blocked(cx,cz,0.05,pi))continue;const ck=Math.floor(rand()*fcKeys.length);const n=4+Math.floor(rand()*7);for(let k=0;k<n;k++){const x=cx+rnd(-0.28,0.28),z=cz+rnd(-0.28,0.28);if(blocked(x,z,0,pi))continue;fl.push([x,z,rand()<0.75?ck:Math.floor(rand()*fcKeys.length),rnd(0.08,0.2),rnd(0.7,1.25)])}}
+    const o=new THREE.Object3D();const fim=new THREE.InstancedMesh(new THREE.SphereGeometry(0.055,8,6),glow(0xffffff,0xffffff,0.0,0.18),fl.length);const stemG=cyl(0.008,0.01,1,4);stemG.translate(0,0.5,0);const stim=new THREE.InstancedMesh(stemG,std('sage2'),fl.length);
+    fl.forEach((f,i)=>{o.position.set(f[0],ground(f[0],f[1])+f[3],f[1]);o.scale.setScalar(f[4]);o.updateMatrix();fim.setMatrixAt(i,o.matrix);o.position.set(f[0],ground(f[0],f[1]),f[1]);o.scale.set(1,f[3],1);o.updateMatrix();stim.setMatrixAt(i,o.matrix)});
+    const paintF=()=>{fl.forEach((f,i)=>fim.setColorAt(i,PAL[fcKeys[f[2]]]));if(fim.instanceColor)fim.instanceColor.needsUpdate=true};paintF();themeHooks.push(paintF);g.add(fim);g.add(stim);
+    const gr=[];tries=0;while(gr.length<Math.round((LOW?350:1100)*fk)&&tries<12000){tries++;const x=rnd(-9.7,9.7),z=rnd(-5.85,6.3);if(blocked(x,z,-0.15,pi))continue;gr.push([x,z,rnd(-0.25,0.25),rnd(0,3),rnd(-0.25,0.25),rnd(0.6,1.3)])}
+    const gg=new THREE.ConeGeometry(0.035,0.2,4);gg.translate(0,0.1,0);const gim=new THREE.InstancedMesh(gg,std(0xffffff,{roughness:.9}),gr.length);
+    gr.forEach((gr2,i)=>{o.position.set(gr2[0],ground(gr2[0],gr2[1]),gr2[1]);o.rotation.set(gr2[2],gr2[3],gr2[4]);o.scale.setScalar(gr2[5]);o.updateMatrix();gim.setMatrixAt(i,o.matrix)});
+    const gk=['sage','sage3','sage2','grass'];const paintG=()=>{gr.forEach((gr2,i)=>gim.setColorAt(i,PAL[gk[i%4]]));if(gim.instanceColor)fim.instanceColor.needsUpdate=true};paintG();themeHooks.push(paintG);gim.receiveShadow=true;g.add(gim)}
+}
+/* 全书共享装饰：非书底座的背景剪纸、太阳/月亮立杆、纸船/行人/光点/纸飞机 */
+function buildDecorGlobal(){const D=SCENE.decor;
+  const bk=BASE.back,by=BASE.top;
+  if(SCENE.base!=='book'){
+    popLayer(hills(bk.x0,bk.x1,1.25,0.55,1.3),'mist',bk.z-0.2,by);popLayer(hills(bk.x0+0.05,bk.x1-0.05,0.55,0.35,3.1),'sage3',bk.z,by);
+    popLayer(hills(bk.x0*0.6+bk.x1*0.4,bk.x1,0.75,0.3,5.2),'grass',bk.z+0.05,by);
+    [[0.18,1.15,'sage'],[0.25,0.9,'butter'],[0.75,1.05,'accent'],[0.85,0.8,'sage3']].forEach(t=>{const x=lerp(bk.x0,bk.x1,t[0]);const tr=new THREE.Group();tr.position.set(x,0,bk.z+0.2);popup.add(tr);
+      add(tr,new THREE.BoxGeometry(0.05,t[1],0.04),std('wood2'),0,by+t[1]/2,0);const c=new THREE.Shape();c.absarc(0,0,0.32,0,Math.PI*2,false);add(tr,extrude(c),std(t[2],{roughness:.95}),0,by+t[1]+0.2,0)});
+  }
   {const sp=[];for(let i=0;i<32;i++){const a=i/32*Math.PI*2;const r=i%2?0.5:0.72;sp.push([Math.cos(a)*r,Math.sin(a)*r])}
     const holder=new THREE.Group();holder.position.set(bk.pole,0,bk.z+0.15);popup.add(holder);add(holder,cyl(0.02,0.02,3.4,6),std('metal'),0,by+1.7,0);
     holder.add(sunPop);holder.add(moonPop);sunPop.position.y=moonPop.position.y=by+3.5;
@@ -891,31 +970,6 @@ function buildDecor(){const D=SCENE.decor;
     const m=new THREE.Shape();m.absarc(0,0,0.6,Math.PI*0.35,Math.PI*1.65,false);m.absarc(0.28,0.0,0.5,Math.PI*1.5,Math.PI*0.5,true);add(moonPop,extrude(m),glow('cream','butter',0.2,1.6),0,0,0);
     moonPop.scale.setScalar(0.001);updaters.push((dt,t)=>{sunPop.rotation.z+=dt*0.15;holder.rotation.z=Math.sin(t*0.6)*0.03})}
   popup.traverse(o=>{if(o.isMesh)o.receiveShadow=true});
-  // 路灯（自动避让）
-  const lampSpots=[[-6.0,-4.6],[-5.6,4.4],[4.8,-1.6],[4.0,1.5],[-2.2,-0.9],[8.9,-1.2],[0.6,3.2],[-0.6,-2.6]];const lamps=[];
-  lampSpots.forEach(([x,z],i)=>{if(!blocked(x,z,0.3))lamps.push(lamp(x,z,i<6))});
-  // 树和灌木：固定候选点 + 随机补充
-  const treeSpots=[[-9.2,-1.7,1,1],[-3.3,-4.5,1,0],[2.5,5.0,1.05,2],[9.2,-3.0,0.9,3],[-4.6,0.7,0.85,1],[-9.0,-3.2,0.85,0],[1.6,3.5,0.9,3],[9.4,0.8,0.75,2],[-9.3,3.9,0.95,0],[-1.3,-4.8,0.85,2],[-7.2,5.4,0.8,3],[1.4,-4.6,0.8,1],[5.2,5.6,0.8,0],[-5.4,-5.4,0.75,3],[9.0,5.2,0.8,1]];
-  const tk=clamp(+D.trees||0,0,2);let placed=0;treeSpots.forEach(t=>{if(tk>0&&!blocked(t[0],t[1],0.35)){fluffyTree(t[0],t[1],t[2],t[3]);placed++}});
-  for(let k=0;k<400&&placed<Math.round(15*tk);k++){const x=rnd(-9.6,9.6),z=rnd(-5.6,6.2);if(blocked(x,z,0.5))continue;fluffyTree(x,z,rnd(0.7,1),Math.floor(rand()*4));placed++}
-  const bushSpots=[[-6.3,3.3,0.8,2],[-0.9,4.6,0.7,0],[9.3,-1.9,0.7,0],[2.4,-5.4,0.7,3],[-9.4,-0.4,0.7,2],[0.9,-2.8,0.6,0],[-2.0,1.0,0.6,3],[8.4,1.5,0.6,1]];bushSpots.forEach(b=>{if(tk>0&&!blocked(b[0],b[1],0.3))bush(...b)});
-  // 串灯：每盏路灯连到最近的区域顶部
-  if(D.garlands!==false){lamps.forEach(L=>{let best=null,bd=4.2;zoneRT.forEach(z=>{const d=Math.hypot(z.x-L.x,z.z-L.z);if(d<bd){bd=d;best=z}});if(best)garland(L,G(best.x,best.z,Math.min(best.h*0.72,2.6)),0.28,12)});
-    if(HAS_RIVER){const c=riverAt(0.5);const a=c.p.clone().add(c.n.clone().multiplyScalar(1.25)),b=c.p.clone().sub(c.n.clone().multiplyScalar(1.25));if(!blocked(a.x,a.z,0.2)&&!blocked(b.x,b.z,0.2)){const pa=pole(a.x,a.z),pb=pole(b.x,b.z);garland(pa,pb,0.32,14)}}
-    bulbMesh(scene,worldBulbs,0.05)}
-  // 石板路（沿河两岸）
-  if(HAS_RIVER){const stones=[];const L=riverCurve.getLength();for(let d=0.15;d<L;d+=0.36){const r=riverAt(d/L);for(const s of[-1,1]){const x=r.p.x+r.n.x*0.78*s+rnd(-0.04,0.04),z=r.p.z+r.n.z*0.78*s+rnd(-0.04,0.04);if(!BASE.inside(x,z,0)||zoneRT.some(zr=>Math.hypot(x-zr.x,z-zr.z)<zr.r))continue;stones.push([x,z])}}
-    const sim=new THREE.InstancedMesh(cyl(0.13,0.14,0.035,12),std('stone'),stones.length);sim.receiveShadow=true;const o=new THREE.Object3D();stones.forEach((s,i)=>{o.position.set(s[0],ground(s[0],s[1])+0.02,s[1]);o.rotation.set(0,rand()*3,0);o.scale.set(rnd(0.8,1.15),1,rnd(0.75,1.05));o.updateMatrix();sim.setMatrixAt(i,o.matrix)});world.add(sim)}
-  // 花丛 + 草丛（InstancedMesh，颜色跟随主题）
-  const fk=clamp(+D.flowers||0,0,2);if(fk>0){const fcKeys=['accent','butter','lav','cream','mist','accent2','roof2'];const fl=[];let tries=0;const target=Math.round((LOW?220:620)*fk);
-    while(fl.length<target&&tries<9000){tries++;const cx=rnd(-9.6,9.6),cz=rnd(-5.8,6.2);if(blocked(cx,cz,0.05))continue;const ck=Math.floor(rand()*fcKeys.length);const n=4+Math.floor(rand()*7);for(let k=0;k<n;k++){const x=cx+rnd(-0.28,0.28),z=cz+rnd(-0.28,0.28);if(blocked(x,z))continue;fl.push([x,z,rand()<0.75?ck:Math.floor(rand()*fcKeys.length),rnd(0.08,0.2),rnd(0.7,1.25)])}}
-    const o=new THREE.Object3D();const fim=new THREE.InstancedMesh(new THREE.SphereGeometry(0.055,8,6),glow(0xffffff,0xffffff,0.0,0.18),fl.length);const stemG=cyl(0.008,0.01,1,4);stemG.translate(0,0.5,0);const stim=new THREE.InstancedMesh(stemG,std('sage2'),fl.length);
-    fl.forEach((f,i)=>{o.position.set(f[0],ground(f[0],f[1])+f[3],f[1]);o.scale.setScalar(f[4]);o.updateMatrix();fim.setMatrixAt(i,o.matrix);o.position.set(f[0],ground(f[0],f[1]),f[1]);o.scale.set(1,f[3],1);o.updateMatrix();stim.setMatrixAt(i,o.matrix)});
-    const paintF=()=>{fl.forEach((f,i)=>fim.setColorAt(i,PAL[fcKeys[f[2]]]));if(fim.instanceColor)fim.instanceColor.needsUpdate=true};paintF();themeHooks.push(paintF);world.add(fim);world.add(stim);
-    const gr=[];tries=0;while(gr.length<Math.round((LOW?350:1100)*fk)&&tries<12000){tries++;const x=rnd(-9.7,9.7),z=rnd(-5.85,6.3);if(blocked(x,z,-0.15))continue;gr.push([x,z,rnd(-0.25,0.25),rnd(0,3),rnd(-0.25,0.25),rnd(0.6,1.3)])}
-    const gg=new THREE.ConeGeometry(0.035,0.2,4);gg.translate(0,0.1,0);const gim=new THREE.InstancedMesh(gg,std(0xffffff,{roughness:.9}),gr.length);
-    gr.forEach((g,i)=>{o.position.set(g[0],ground(g[0],g[1]),g[1]);o.rotation.set(g[2],g[3],g[4]);o.scale.setScalar(g[5]);o.updateMatrix();gim.setMatrixAt(i,o.matrix)});
-    const gk=['sage','sage3','sage2','grass'];const paintG=()=>{gr.forEach((g,i)=>gim.setColorAt(i,PAL[gk[i%4]]));if(gim.instanceColor)gim.instanceColor.needsUpdate=true};paintG();themeHooks.push(paintG);gim.receiveShadow=true;world.add(gim)}
   // 纸船（沿河漂）
   if(HAS_RIVER&&D.boats>0){const hull=new THREE.Shape([new THREE.Vector2(-0.22,0.1),new THREE.Vector2(0.22,0.1),new THREE.Vector2(0.14,0),new THREE.Vector2(-0.14,0)]);const hg=extrude(hull,0.14);hg.translate(0,0,-0.07);hg.rotateY(Math.PI/2);
     const sail=new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(-0.12,0),new THREE.Vector2(0.12,0),new THREE.Vector2(0,0.2)]));sail.rotateY(Math.PI/2);const boats=[];
@@ -941,7 +995,7 @@ function buildDecor(){const D=SCENE.decor;
     const fn=(p,t)=>{const a=t*p.sp+p.ph;return new THREE.Vector3(Math.cos(a)*p.r[0],p.y+Math.sin(a*2)*0.6,Math.sin(a)*p.r[1])};
     updaters.push((dt,t)=>{for(const p of planes){const a=fn(p,t),b=fn(p,t+0.05);p.g.position.copy(a);p.g.lookAt(b);p.g.rotateZ(Math.sin(t*p.sp*2+p.ph)*0.35);p.acc+=dt;if(p.acc>0.12){p.acc=0;p.hist.unshift(a.clone());if(p.hist.length>26)p.hist.pop()}for(let k=0;k<26;k++){const vv=p.hist[k]||a;p.tp[k*3]=vv.x;p.tp[k*3+1]=vv.y;p.tp[k*3+2]=vv.z}p.tg.attributes.position.needsUpdate=true}})}
 }
-function pole(x,z,h=1.7){const g=new THREE.Group();g.position.set(x,ground(x,z),z);world.add(g);add(g,cyl(0.04,0.05,h,8),std('wood2'),0,h/2,0);ball(g,0.06,std('accent2'),0,h+0.03,0);extraBlocks.push([x,z,0.25]);return G(x,z,h)}
+function pole(x,z,h=1.7,parent=world,extra=null){const g=new THREE.Group();g.position.set(x,ground(x,z),z);parent.add(g);add(g,cyl(0.04,0.05,h,8),std('wood2'),0,h/2,0);ball(g,0.06,std('accent2'),0,h+0.03,0);pushExtra([x,z,0.25],extra);return G(x,z,h)}
 const sunPop=new THREE.Group(),moonPop=new THREE.Group();let spMat=null;const orbs=[];
 updaters.push((dt,t)=>{const I=cur.bulb||1;const c=new THREE.Color();for(const im of bulbSets){const ph=im.userData.ph,cs=im.userData.cols;for(let i=0;i<im.count;i++){const k=I*(0.7+0.3*Math.sin(t*2.4+ph[i]));c.setRGB(cs[i][0]*k,cs[i][1]*k,cs[i][2]*k);im.setColorAt(i,c)}im.instanceColor.needsUpdate=true}});
 
@@ -1172,12 +1226,17 @@ function frame(){const dt=Math.min(clock.getDelta(),0.05);const t=clock.elapsedT
   composer.render(dt);const w=innerWidth,h=innerHeight;
   labelEls.forEach((d,i)=>{const z=zoneRT[i];tmp.set(z.x,ground(z.x,z.z)+z.h,z.z).project(camera);if(tmp.z>1){d.style.display='none';return}d.style.display='';d.style.transform=`translate(-50%,-100%) translate(${(tmp.x*.5+.5)*w}px,${(-tmp.y*.5+.5)*h}px)`;d.style.zIndex=Math.round((1-tmp.z)*1000)});
   requestAnimationFrame(frame)}
-window.__WB={ready:false,scene,camera,renderer,SCENE:()=>SCENE,get zones(){return zoneRT},base:()=>SCENE.base,inside:(x,z,p)=>BASE.inside(x,z,p),ground,applyTheme,setMode,selectZone,goHome,enterWalk,exitWalk,walkable,runDemo,THEMES,KITS:KIT_NAMES,page:()=>({cur:curPage,total:PAGES.length,multi:MULTI}),turnPage};
+window.__WB={ready:false,scene,camera,renderer,SCENE:()=>SCENE,get zones(){return zoneRT},base:()=>SCENE.base,inside:(x,z,p)=>BASE.inside(x,z,p),ground,applyTheme,setMode,selectZone,goHome,enterWalk,exitWalk,walkable,runDemo,THEMES,KITS:KIT_NAMES,page:()=>({cur:curPage,total:PAGES.length,multi:MULTI}),turnPage,
+  pump:(dt=0.05)=>{for(const f of updaters)f(dt,performance.now()/1000);composer.render(dt)}};
 (async()=>{
   $('loadMsg').textContent='准备字体';
   try{await Promise.race([document.fonts.load('40px "Long Cang"','灵感从这里冒出来今天也好好生活慢慢来比较快0123456789%'),new Promise(r=>setTimeout(r,2500))])}catch(e){}
   $('loadMsg').textContent='摆放小世界';
-  BASE.build();for(let pi=0;pi<PAGES.length;pi++)buildZones(pi);mountPage(curPage);buildRiver();buildDecor();
+  BASE.build();buildRiver();
+  for(let pi=0;pi<PAGES.length;pi++)buildZones(pi);
+  baseExtra.push(...extraBlocks);   // 底座级碰撞项快照（桥/池塘），页级项见 §8.5
+  for(let pi=0;pi<PAGES.length;pi++){buildBackdrop(pi);buildDecor(pi)}
+  mountPage(curPage);buildDecorGlobal();
   applyTheme(SCENE.theme);meName.textContent=SCENE.nickname||'漫游者';applyContent();refreshPageChip();resize();
   const v=overviewView();camera.position.copy(v.pos).add(new THREE.Vector3(7,6,9));controls.target.copy(v.target);
   setMode('morning',true);frame();

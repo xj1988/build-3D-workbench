@@ -228,6 +228,21 @@ def validate_scene(s, themes):
                 for f in ['name', 'sub']:
                     if f in v:
                         check_text(v[f], f'{pl}.modes.{m}.{f}', 40)
+            if 'decor' in pg:
+                pd = pg['decor']
+                need(isinstance(pd, dict), pl + '.decor 必须是对象（缺项回退全局 decor）')
+                for k in ['trees', 'flowers']:
+                    if k in pd:
+                        need(is_num(pd[k]) and 0 <= pd[k] <= 2, f'{pl}.decor.{k} 是 0~2 的密度倍数')
+                for k in ['walkers', 'planes', 'boats']:
+                    if k in pd:
+                        need(isinstance(pd[k], int) and 0 <= pd[k] <= 16, f'{pl}.decor.{k} 是 0~16 的整数')
+                for k in ['garlands', 'sparkles']:
+                    if k in pd:
+                        need(isinstance(pd[k], bool), f'{pl}.decor.{k} 是布尔')
+            if 'backdrop' in pg:
+                bds = CATALOG.get('backdrops', ['default', 'deep'])
+                need(pg['backdrop'] in bds, f'{pl}.backdrop 只能是：' + ' / '.join(bds))
             nz = len(pg.get('zones') or [])
             for m, v in pm.items():
                 if 'focus' in v:
